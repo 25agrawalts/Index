@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07111f">
+<title>The 47-Minute Outage | Network Incident Investigation</title>
+<style>
+:root{
+  --bg:#07111f;--panel:#0e1b2d;--panel2:#12243a;--line:#243a54;
+  --text:#edf5ff;--muted:#9bb0c8;--cyan:#53e0e5;--blue:#5b8cff;
+  --gold:#ffc857;--red:#ff657a;--orange:#ff9b54;--green:#66e2a3;
+  --shadow:0 22px 70px rgba(0,0,0,.28);--radius:22px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{margin:0;background:radial-gradient(ellipse at 80% -10%,#173456 0,transparent 38%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.65}
+a{color:inherit;text-decoration:none}
+button{font:inherit}
+.wrap{width:min(1160px,calc(100% - 36px));margin:auto}
+.eyebrow{color:var(--cyan);font-size:.76rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.hero{min-height:710px;display:grid;align-items:center;position:relative;overflow:hidden;padding:90px 0 80px}
+.hero:before,.hero:after{content:"";position:absolute;border:1px solid #2b5676;border-radius:50%;width:540px;height:540px;right:-90px;top:70px;opacity:.25;box-shadow:0 0 0 50px #17334a22,0 0 0 100px #17334a18}
+.hero:after{width:330px;height:330px;right:15px;top:175px;border-color:#53e0e555;box-shadow:0 0 70px #53e0e51c}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:55px;align-items:center;position:relative;z-index:1}
+h1{font-size:clamp(3.3rem,7vw,6.6rem);line-height:.94;letter-spacing:-.075em;margin:18px 0 24px;max-width:760px}
+h1 span{color:var(--cyan);display:block;text-shadow:0 0 35px #53e0e544}
+.hero p{max-width:650px;color:#b9cbe0;font-size:1.12rem}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+.btn{border:1px solid var(--line);background:#14263b;color:var(--text);padding:13px 19px;border-radius:12px;font-weight:800;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:9px}
+.btn.primary{background:var(--cyan);border-color:var(--cyan);color:#06131e}
+.btn:hover{transform:translateY(-3px);box-shadow:0 12px 30px #0005}
+.radar{height:390px;position:relative;display:grid;place-items:center}
+.radar-ring{position:absolute;border:1px solid #53e0e544;border-radius:50%;animation:pulse 4s ease-out infinite}
+.radar-ring:nth-child(1){width:150px;height:150px}.radar-ring:nth-child(2){width:245px;height:245px;animation-delay:1s}.radar-ring:nth-child(3){width:340px;height:340px;animation-delay:2s}
+.radar-core{width:116px;height:116px;border-radius:30px;background:linear-gradient(145deg,#1e4561,#0d2237);border:1px solid #53e0e577;display:grid;place-items:center;font-size:2.8rem;box-shadow:0 0 60px #53e0e533;z-index:1}
+.radar-tag{position:absolute;background:#12243a;border:1px solid var(--line);padding:9px 13px;border-radius:12px;font-size:.8rem;color:#c7d9ec;box-shadow:var(--shadow)}
+.radar-tag.one{top:36px;left:0}.radar-tag.two{right:-5px;top:125px}.radar-tag.three{bottom:30px;left:30px}
+@keyframes pulse{0%{transform:scale(.88);opacity:.2}50%{opacity:.8}100%{transform:scale(1.08);opacity:.1}}
+nav{position:sticky;top:0;z-index:20;background:#07111fdd;backdrop-filter:blur(18px);border-block:1px solid #ffffff12}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:68px}
+.brand{font-weight:950;letter-spacing:-.04em;white-space:nowrap}.brand b{color:var(--cyan)}
+.navlinks{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}.navlinks a{color:var(--muted);font-size:.84rem;font-weight:700;padding:9px 12px;border-radius:9px;white-space:nowrap}.navlinks a:hover{background:#18314a;color:white}
+section{padding:90px 0}
+.section-head{display:flex;justify-content:space-between;align-items:end;gap:25px;margin-bottom:30px}
+h2{font-size:clamp(2rem,4vw,3.2rem);line-height:1.05;letter-spacing:-.055em;margin:8px 0}
+.section-head p{color:var(--muted);max-width:520px;margin:0}
+.grid{display:grid;gap:18px}
+.stats{grid-template-columns:repeat(4,1fr)}
+.stat,.panel,.cause,.chapter,.team-card{background:linear-gradient(145deg,#12243a,#0c192a);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.stat{padding:22px}.stat small{color:var(--muted);font-weight:700}.stat strong{display:block;font-size:2.25rem;letter-spacing:-.06em;margin:5px 0}.stat em{font-style:normal;color:var(--cyan);font-size:.82rem}
+.panel{padding:28px}
+.two-col{grid-template-columns:1fr 1fr}
+.timeline{display:grid;grid-template-columns:repeat(7,1fr);gap:0;position:relative;margin-top:35px}
+.timeline:before{content:"";position:absolute;top:15px;left:2%;right:2%;height:2px;background:linear-gradient(90deg,var(--gold),var(--cyan))}
+.timepoint{position:relative;padding:42px 12px 0 0}.timepoint:before{content:"";position:absolute;top:7px;left:0;width:17px;height:17px;background:var(--gold);border:4px solid #172b40;border-radius:50%;z-index:1;box-shadow:0 0 0 2px var(--gold)}
+.timepoint:last-child:before{background:var(--green);box-shadow:0 0 0 2px var(--green)}
+.timepoint b{color:var(--cyan);font-size:.92rem}.timepoint p{font-size:.84rem;color:var(--muted);line-height:1.45}
+.story-list{display:grid;gap:12px}
+.chapter{overflow:hidden}
+.chapter summary{cursor:pointer;list-style:none;padding:20px 22px;display:flex;align-items:center;gap:14px;font-weight:850}
+.chapter summary::-webkit-details-marker{display:none}
+.chapter summary:after{content:"＋";margin-left:auto;color:var(--cyan);font-size:1.3rem}
+.chapter[open] summary:after{content:"−"}
+.chapter[open] summary{border-bottom:1px solid var(--line)}
+.chapter-body{padding:22px;color:#c2d2e4}
+.num{width:37px;height:37px;border-radius:12px;background:#1b3853;color:var(--cyan);display:grid;place-items:center;flex:none}
+.chapter-body p{margin-top:0}
+.clue{border-left:3px solid var(--gold);background:#ffc85712;padding:13px 16px;border-radius:0 12px 12px 0;margin:15px 0;color:#f7e2b5}
+.clue.good{border-color:var(--green);background:#66e2a311;color:#c5f7df}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#07111f;color:#7ff2dc;padding:3px 7px;border-radius:6px}
+pre{white-space:pre-wrap;overflow:auto;background:#050c15;border:1px solid #243b51;border-radius:13px;padding:16px;color:#8df4d9;font: .88rem/1.7 ui-monospace,monospace}
+.cause-grid{grid-template-columns:repeat(4,1fr)}
+.cause{padding:22px;position:relative;overflow:hidden}
+.cause:after{content:"";position:absolute;width:110px;height:110px;border-radius:50%;right:-45px;top:-45px;background:var(--accent);opacity:.08}
+.cause .icon{font-size:1.8rem}.cause h3{margin:12px 0 5px}.cause p{color:var(--muted);font-size:.9rem;margin:7px 0}.cause .layer{color:var(--accent);font-size:.74rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em}
+.cause.red{--accent:var(--red)}.cause.orange{--accent:var(--orange)}.cause.yellow{--accent:var(--gold)}.cause.blue{--accent:var(--blue)}
+.topology{display:grid;grid-template-columns:1fr 1fr;gap:25px;align-items:center}
+.network{background:#081522;border:1px solid var(--line);border-radius:20px;padding:25px;display:grid;justify-items:center;gap:9px;position:relative;overflow:hidden}
+.node{border:1px solid #31516d;background:#132b42;border-radius:11px;padding:11px 16px;text-align:center;font-weight:800;font-size:.88rem;min-width:190px;position:relative;z-index:1}
+.node small{display:block;color:var(--muted);font-weight:500}.node.highlight{border-color:var(--cyan);box-shadow:0 0 25px #53e0e522}
+.down{color:var(--cyan);font-size:1.1rem;line-height:1}
+.branch{display:flex;gap:12px;align-items:center;justify-content:center;width:100%;flex-wrap:wrap}
+.branch .node{min-width:135px}
+.network-note{color:var(--muted);font-size:.82rem;text-align:center}
+.flow-box{background:#081522;border:1px solid var(--line);border-radius:20px;padding:24px;overflow:hidden}
+.flow-track{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:22px 0}
+.flow-node{min-width:130px;text-align:center;padding:15px 12px;border:1px solid #31516d;border-radius:13px;background:#132b42;font-weight:800;font-size:.82rem}
+.flow-node small{display:block;color:var(--muted);font-weight:500}
+.packet{width:14px;height:14px;background:var(--gold);border-radius:4px;box-shadow:0 0 18px var(--gold);flex:none;animation:travel 3s linear infinite}
+@keyframes travel{0%{transform:translateX(-4px);opacity:.2}50%{opacity:1}100%{transform:translateX(4px);opacity:.2}}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}
+.tab{padding:9px 13px;border:1px solid var(--line);background:#0c192a;color:var(--muted);border-radius:10px;cursor:pointer;font-weight:800}
+.tab.active{background:var(--cyan);color:#06131e;border-color:var(--cyan)}
+.detail{min-height:120px;color:#c3d3e4}.detail h3{color:white;margin:0 0 8px}
+.command-grid{grid-template-columns:repeat(2,1fr)}
+.command{border:1px solid var(--line);border-radius:14px;padding:17px;background:#0a1726}
+.command-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.command h3{font-size:.98rem;margin:0}.copy{border:1px solid #31516d;background:#142a40;color:var(--cyan);padding:7px 10px;border-radius:8px;cursor:pointer;font-weight:800;font-size:.75rem}.command p{color:var(--muted);font-size:.85rem;margin:9px 0}
+.lessons{grid-template-columns:repeat(3,1fr)}
+.lesson{padding:23px;border-radius:18px;background:#102239;border:1px solid var(--line)}.lesson b{color:var(--cyan);font-size:1.6rem}.lesson h3{margin:8px 0}.lesson p{color:var(--muted);margin:0;font-size:.9rem}
+.team{grid-template-columns:repeat(4,1fr)}
+.team-card{text-align:center;padding:25px 15px}
+.avatar{width:68px;height:68px;border-radius:22px;margin:0 auto 13px;display:grid;place-items:center;background:linear-gradient(145deg,#24506a,#153049);border:1px solid #4b8197;color:var(--cyan);font-size:1.45rem;font-weight:950}
+.team-card h3{margin:0}.team-card p{color:var(--muted);font-size:.8rem;margin:4px 0 0}
+footer{border-top:1px solid var(--line);padding:35px 0 50px;color:var(--muted);text-align:center}
+footer strong{color:var(--cyan)}
+.reveal{opacity:0;transform:translateY(18px);transition:.65s}.reveal.visible{opacity:1;transform:none}
+@media(max-width:850px){.hero-grid,.topology{grid-template-columns:1fr}.radar{height:310px}.stats,.cause-grid{grid-template-columns:repeat(2,1fr)}.timeline{grid-template-columns:repeat(4,1fr);row-gap:10px}.timeline:before{display:none}.timepoint{padding-top:18px;border-top:1px solid var(--line)}.timepoint:before{top:-9px}.team{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.wrap{width:min(100% - 24px,1160px)}.hero{min-height:auto;padding:75px 0 55px}.hero-grid{gap:10px}.radar{height:270px}.radar-ring:nth-child(3){width:260px;height:260px}.radar-ring:nth-child(2){width:190px;height:190px}.radar-ring:nth-child(1){width:120px;height:120px}.radar-tag{font-size:.68rem}.section-head{display:block}.section-head p{margin-top:12px}.stats,.cause-grid,.two-col,.command-grid,.lessons{grid-template-columns:1fr 1fr}.timeline{grid-template-columns:repeat(2,1fr)}.team{grid-template-columns:repeat(2,1fr)}section{padding:65px 0}.panel{padding:19px}.nav-inner{align-items:flex-start;flex-direction:column;padding:10px 0}.navlinks{width:100%}.stat strong{font-size:1.8rem}}
+@media(max-width:380px){.stats,.cause-grid,.command-grid,.lessons{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="hero">
+ <div class="wrap hero-grid">
+  <div>
+   <div class="eyebrow">Computer Networks • Incident Investigation</div>
+   <h1>The 47-Minute <span>Outage.</span></h1>
+   <p>One campus. One online examination. Four hidden network faults. Follow the evidence, trace every packet, and uncover how the team brought the examination portal back online.</p>
+   <div class="actions"><a class="btn primary" href="#investigation">▶ Start investigation</a><a class="btn" href="#topology">Explore network map ↗</a></div>
+   <p style="font-size:.82rem;color:#7891aa;margin-top:20px">CASE FILE #047 &nbsp;•&nbsp; INCIDENT WINDOW: 8:50–9:47 AM</p>
+  </div>
+  <div class="radar" aria-label="Animated network radar illustration">
+   <div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-ring"></div>
+   <div class="radar-core">⌁</div>
+   <div class="radar-tag one">⚠ DHCP mismatch</div><div class="radar-tag two">⌕ DNS anomaly</div><div class="radar-tag three">✓ Service restored</div>
+  </div>
+ </div>
+</header>
+<nav><div class="wrap nav-inner"><a class="brand" href="#">NET<span><b>TRACE</b></span> / 047</a><div class="navlinks">
+ <a href="#brief">Brief</a><a href="#timeline">Timeline</a><a href="#investigation">Clue Chapters</a><a href="#fullstory">Full Story</a><a href="#topology">Topology</a><a href="#faults">Faults</a><a href="#packetflow">Packet flow</a><a href="#toolkit">Commands</a><a href="#team">Team</a>
+</div></div></nav>
+<main>
+<section id="brief">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">01 / Mission briefing</div><h2>What actually happened?</h2></div><p>Students could connect to campus Wi-Fi, but the examination portal behaved differently across locations. It looked like one major server failure. It wasn't.</p></div>
+  <div class="grid stats">
+   <div class="stat"><small>TIME TO RESTORE</small><strong>47<span style="font-size:1rem"> min</span></strong><em>8:50 → 9:47 AM</em></div>
+   <div class="stat"><small>INDEPENDENT FAULTS</small><strong>04</strong><em>Different causes, different fixes</em></div>
+   <div class="stat"><small>NETWORK LAYERS</small><strong>04+</strong><em>Client → network → service</em></div>
+   <div class="stat"><small>FINAL STATUS</small><strong style="color:var(--green)">ONLINE</strong><em>Verified end-to-end</em></div>
+  </div>
+  <div class="panel" style="margin-top:18px"><div class="eyebrow">The mystery</div><h3 style="font-size:1.35rem;margin:8px 0">Why could one student open the portal while another couldn't submit an answer?</h3><p style="color:var(--muted);margin-bottom:0">The Library worked normally. Lab A couldn't reach the portal. Room B experienced submission timeouts. Later, a valid browser-extension request was blocked. Each symptom was a clue to a separate fault.</p></div>
+ </div>
+</section>
+<section id="timeline">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">02 / Evidence log</div><h2>47 minutes. Seven key moments.</h2></div><p>Move through the incident chronologically, from the first student report to full service verification.</p></div>
+  <div class="timeline">
+   <div class="timepoint"><b>8:50 AM</b><p>Students report the portal is unavailable.</p></div>
+   <div class="timepoint"><b>9:00 AM</b><p>Exam begins. Lab A cannot access; Room B cannot submit.</p></div>
+   <div class="timepoint"><b>9:05 AM</b><p>Wrong default gateway found in Lab A.</p></div>
+   <div class="timepoint"><b>9:14 AM</b><p>Stale DNS record points to old server.</p></div>
+   <div class="timepoint"><b>9:22 AM</b><p>Submission timeouts traced to server bottleneck.</p></div>
+   <div class="timepoint"><b>9:31 AM</b><p>Firewall rule blocks a legitimate request.</p></div>
+   <div class="timepoint"><b>9:47 AM</b><p>All examination services restored and verified.</p></div>
+  </div>
+ </div>
+</section>
+<section id="investigation">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">03 / Case investigation</div><h2>Open the case chapters.</h2></div><p>Each chapter reveals a symptom, the test used to investigate it, the evidence, and the fix. Open them one by one like an incident-response log.</p></div>
+  <div class="story-list">
+   <details class="chapter" open><summary><span class="num">01</span>The Countdown — a campus-wide mystery</summary><div class="chapter-body"><p><b>Time:</b> 8:50 AM. The online examination is about to begin. Students connect to campus Wi-Fi, but Lab A cannot open the portal. In Room B, the homepage loads, but answer submissions time out.</p><div class="clue"><b>First clue:</b> Library students can open the portal and submit answers normally. So the examination server is not completely down.</div><p><b>Networking focus:</b> Wi-Fi connectivity, client configuration, and network topology.</p></div></details>
+   <details class="chapter"><summary><span class="num">02</span>The Wrong Gateway — DHCP configuration</summary><div class="chapter-body"><p>Lab A devices have IP address <code>10.20.5.25</code> and subnet mask <code>255.255.255.0</code>, but their default gateway is <code>10.20.5.1</code>. The correct gateway is <code>10.20.5.254</code>.</p><pre>ipconfig /all
+ping 10.20.5.254</pre><div class="clue"><b>Root cause:</b> The Lab A DHCP scope is providing the wrong default gateway address.</div><p><b>Fix:</b> Correct the DHCP gateway setting and renew client IP leases.</p><pre>ipconfig /release
+ipconfig /renew</pre><p><b>Why it works:</b> The default gateway is the next-hop router used when a device sends traffic outside its own subnet.</p></div></details>
+   <details class="chapter"><summary><span class="num">03</span>The Packet That Took the Wrong Road — DNS</summary><div class="chapter-body"><p>After the gateway is corrected, some computers still open an old maintenance page instead of the live examination portal.</p><pre>nslookup exam.college.edu</pre><p>DNS returns <code>10.30.1.40</code>, but the live examination server is <code>10.30.1.50</code>. The DNS A record is stale.</p><div class="clue"><b>Root cause:</b> <code>exam.college.edu</code> still points to the old portal server.</div><p><b>Fix:</b> Update the DNS A record and flush local DNS caches.</p><pre>ipconfig /flushdns
+nslookup exam.college.edu</pre><p><b>Why it works:</b> DNS translates a domain name into an IP address. Correcting the record sends browsers to the correct server.</p></div></details>
+   <details class="chapter"><summary><span class="num">04</span>The Connection That Wasn't Enough — server bottleneck</summary><div class="chapter-body"><p>The portal now loads, but when hundreds of students submit answers together, some requests are delayed or fail.</p><p>The team captures packets and checks server logs. TCP handshakes succeed, but retransmissions, duplicate acknowledgments, and HTTP 504 timeout responses appear during submission.</p><div class="clue"><b>Root cause:</b> The application server and database cannot handle the sudden number of simultaneous submissions.</div><p><b>Fix:</b> Increase the application-worker limit and database-connection pool within tested capacity limits.</p><p><b>Why it works:</b> A successful TCP connection does not guarantee that the web application can process every request quickly. TCP provides reliable transport, but the application must still have enough capacity.</p></div></details>
+   <details class="chapter"><summary><span class="num">05</span>The Rule Nobody Checked — firewall false positive</summary><div class="chapter-body"><p>Most students can submit answers, but requests from one approved browser extension receive HTTP 403 Forbidden responses.</p><pre>403 Forbidden
+Rule ID: BLOCK_SUSPICIOUS_HEADER
+Destination: exam.college.edu/submit</pre><div class="clue"><b>Root cause:</b> A broad firewall/reverse-proxy rule incorrectly blocks a legitimate submission request.</div><p><b>Fix:</b> Add a narrow, approved exception for the verified extension without disabling the security rule.</p><p><b>Why it works:</b> The firewall continues blocking suspicious traffic while allowing legitimate examination submissions.</p></div></details>
+   <details class="chapter"><summary><span class="num">06</span>Forty-Seven Minutes Later — verification</summary><div class="chapter-body"><p><b>Time:</b> 9:47 AM. The team verifies every layer of the service: Wi-Fi association, DHCP settings, gateway reachability, DNS resolution, TCP port 443, portal loading, answer submission, and confirmation pages.</p><pre>ipconfig /all
+ping 10.20.5.254
+nslookup exam.college.edu
+tracert exam.college.edu
+Test-NetConnection exam.college.edu -Port 443</pre><div class="clue good"><b>Case closed:</b> Four independent faults were identified and safely corrected. Full examination service was restored in 47 minutes.</div></div></details>
+  </div>
+ </div>
+</section>
+<section id="fullstory">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">04 / Read it like a story</div><h2>The complete case: The 47-Minute Outage</h2></div><p>One continuous story from the first warning to the final confirmation. No chapter clicks needed — read the whole investigation from beginning to end.</p></div>
+  <article class="panel" style="max-width:920px;margin:auto">
+   <div class="eyebrow">Case file #047 • 8:50 AM</div>
+   <h3 style="font-size:1.7rem;margin:8px 0 20px">The morning the examination portal disappeared</h3>
+   <p>It was 8:50 a.m. on an important examination day at the college. Students were entering their classrooms, opening their laptops, and connecting to the campus Wi-Fi. The online examination was scheduled to begin at 9:00 a.m. Everything seemed normal — until the first complaint arrived.</p>
+   <p>“Ma’am, the examination portal is not opening!” shouted a student from Lab A. Almost at the same time, another message came from Room B: “The website opens, but our answers are not getting submitted!”</p>
+   <p>Within minutes, the complaints started coming from different parts of the campus. The network team initially suspected that the examination server had crashed. But one detail did not fit: students sitting in the Library could open the portal and submit their answers without any problem.</p>
+   <p>That was when Meera, the network investigator, stepped in. “If the entire server were down, nobody would be able to use it. We need to stop guessing and follow the evidence. Let's check the network one layer at a time.”</p>
+   <div class="clue"><b>Clue 1:</b> The Library could use the portal successfully. The problem was not a complete server shutdown. Different locations were experiencing different symptoms.</div>
+
+   <h3>9:05 AM — The wrong road</h3>
+   <p>Meera began with Lab A. The students were connected to Wi-Fi, so she checked their IP configuration using <code>ipconfig /all</code>. The computers had an IP address of <code>10.20.5.25</code> and a subnet mask of <code>255.255.255.0</code>. But something was wrong with the default gateway.</p>
+   <p>“The gateway is <code>10.20.5.1</code>, but it should be <code>10.20.5.254</code>,” Meera noticed. “The default gateway is like the exit gate of a campus. If a computer wants to communicate outside its own network, it sends the traffic to this gateway. These computers are being given the wrong exit.”</p>
+   <p>She checked the DHCP configuration and found the first fault: the Lab A DHCP scope was providing an incorrect default gateway. The team corrected the DHCP setting and renewed the clients' IP leases using <code>ipconfig /release</code> and <code>ipconfig /renew</code>.</p>
+   <p>Lab A could now reach the correct gateway. But the investigation was far from over.</p>
+
+   <h3>9:14 AM — The address that lied</h3>
+   <p>Some students could now reach the network, but their browsers were still opening an old maintenance page instead of the live examination portal.</p>
+   <p>Meera ran <code>nslookup exam.college.edu</code>. The result showed the address <code>10.30.1.40</code>. She compared it with the live examination server address: <code>10.30.1.50</code>.</p>
+   <p>“We have another problem. DNS is giving the computers an old address,” she explained. “DNS works like a contacts list. We type a website name, and DNS finds the IP address connected to that name. Here, the contacts list is outdated, so some browsers are being directed to the old server.”</p>
+   <p>The team found a stale DNS A record for <code>exam.college.edu</code>. They updated it to point to the live server and cleared the local DNS cache with <code>ipconfig /flushdns</code>. After checking the name again, the correct address appeared.</p>
+   <div class="clue"><b>Clue 2:</b> The domain name was resolving to <code>10.30.1.40</code>, while the live portal was at <code>10.30.1.50</code>. The DNS record was stale.</div>
+
+   <h3>9:22 AM — Connected, but still not working</h3>
+   <p>The portal was now opening for more students. For a moment, the team thought the problem was solved. Then another wave of complaints arrived: “My answer is taking too long to submit!” and “The page is showing a timeout!”</p>
+   <p>This time, Meera and the team examined packet captures and server logs. They found that TCP handshakes were succeeding, but during the rush of hundreds of simultaneous submissions, there were retransmissions, duplicate acknowledgments, and HTTP 504 Gateway Timeout responses.</p>
+   <p>Meera explained, “TCP can establish a reliable connection between the computer and the server. But that does not mean the application has enough capacity to process every request quickly. Imagine a restaurant where the entrance is open, but the kitchen has too many orders. Customers have entered, but their food is delayed.”</p>
+   <p>The application server and database were struggling with the sudden load. The team increased the application-worker limit and database-connection pool within tested capacity limits. The portal became more responsive, and submissions started completing more reliably.</p>
+
+   <h3>9:31 AM — The rule that blocked the right person</h3>
+   <p>Most students could now submit their answers. However, a few requests from an approved browser extension were still being rejected. The browser displayed <code>403 Forbidden</code>.</p>
+   <p>Meera checked the firewall and reverse-proxy logs. The evidence showed a rule named <code>BLOCK_SUSPICIOUS_HEADER</code> blocking a request to <code>exam.college.edu/submit</code>.</p>
+   <p>“A firewall protects a network by checking traffic against security rules,” Meera said. “But a rule can sometimes be too broad. This one is treating a legitimate request as suspicious.”</p>
+   <p>The fourth fault was a false positive caused by an overly broad firewall/reverse-proxy rule. The team did not switch off the security rule. Instead, they added a narrow, approved exception for the verified browser extension. Suspicious traffic remained blocked, while the legitimate submission request was allowed.</p>
+   <div class="clue"><b>Clue 4:</b> The HTTP 403 response and firewall log identified a security rule false positive — not a DNS, gateway, or server-capacity problem.</div>
+
+   <h3>9:47 AM — Forty-seven minutes later</h3>
+   <p>By 9:47 a.m., the team had corrected all four faults. But Meera knew that changing settings was not enough. The service had to be tested from beginning to end.</p>
+   <p>The team checked the Wi-Fi connection, DHCP configuration, gateway reachability, DNS resolution, TCP port 443, portal loading, answer submission, and confirmation pages. They used commands such as <code>ipconfig /all</code>, <code>ping 10.20.5.254</code>, <code>nslookup exam.college.edu</code>, <code>tracert exam.college.edu</code>, and <code>Test-NetConnection exam.college.edu -Port 443</code>.</p>
+   <p>One by one, the checks passed. Students could open the correct portal, submit their answers, and receive confirmation. The examination service was finally restored.</p>
+   <p>Meera looked at the incident log and summed it up: “It looked like one big network failure, but it was actually four independent faults — a wrong DHCP gateway, a stale DNS record, an application-server bottleneck, and a firewall rule that blocked a legitimate request. We solved it because we followed the evidence layer by layer.”</p>
+   <div class="clue good"><b>CASE CLOSED — 9:47 AM.</b> Four faults. Four targeted fixes. One examination portal restored in 47 minutes.</div>
+   <p style="color:var(--muted);font-size:.88rem;margin-bottom:0">The lesson: a connected device does not automatically mean a working application. Good network troubleshooting means identifying exactly where communication fails, proving the cause, applying a safe fix, and verifying the complete service.</p>
+  </article>
+ </div>
+</section>
+<section id="topology">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">04 / Network architecture</div><h2>Follow the campus network.</h2></div><p>This simplified topology shows how student devices reach the examination application and database.</p></div>
+  <div class="topology">
+   <div class="network">
+    <div class="branch"><div class="node">💻 Lab A PCs<small>DHCP gateway issue</small></div><div class="node">💻 Room B PCs<small>Submission timeouts</small></div><div class="node">💻 Library PCs<small>Working normally</small></div></div>
+    <div class="down">↓</div><div class="node">📡 Wi-Fi Access Point</div><div class="down">↓</div><div class="node">▦ Campus Switch</div><div class="down">↓</div><div class="node highlight">⇄ Campus Router<small>Default gateway: 10.20.5.254</small></div><div class="down">↓</div>
+    <div class="branch"><div class="node">DNS Server<small>Resolves portal name</small></div><div class="node">🛡 Firewall / Reverse Proxy<small>Filters requests</small></div></div>
+    <div class="down">↓</div><div class="node highlight">🌐 Examination Portal<small>10.30.1.50</small></div><div class="down">↓</div><div class="node">⚙ Application Server</div><div class="down">↓</div><div class="node">▤ Database</div>
+   </div>
+   <div class="panel"><div class="eyebrow">How to read this map</div><h3 style="font-size:1.5rem">Every hop has a job.</h3><p style="color:var(--muted)">A student's device first joins Wi-Fi, then uses the campus network to reach the router. DNS helps the browser find the portal's IP address. The firewall/reverse proxy checks requests before they reach the portal, application server, and database.</p><div class="clue">A fault at one point can create a very different symptom from a fault somewhere else. That is why the team tested each layer instead of assuming the server was down.</div><p><b style="color:var(--cyan)">Key addresses</b></p><p style="color:var(--muted);font-size:.9rem">Correct gateway: <code>10.20.5.254</code><br>Wrong gateway: <code>10.20.5.1</code><br>Old portal IP: <code>10.30.1.40</code><br>Live portal IP: <code>10.30.1.50</code></p></div>
+  </div>
+ </div>
+</section>
+<section id="faults">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">05 / Root-cause analysis</div><h2>Four faults. Four different clues.</h2></div><p>Compare the symptom, technical layer, and evidence that exposed each problem.</p></div>
+  <div class="grid cause-grid">
+   <article class="cause red"><div class="icon">🧭</div><div class="layer">Network / IP</div><h3>01. Wrong Gateway</h3><p>Lab A used <code>10.20.5.1</code> instead of <code>10.20.5.254</code>.</p><p><b>Evidence:</b> IP configuration and gateway ping.</p></article>
+   <article class="cause orange"><div class="icon">🔎</div><div class="layer">Application / DNS</div><h3>02. Stale DNS</h3><p><code>exam.college.edu</code> pointed to old server <code>10.30.1.40</code>.</p><p><b>Evidence:</b> <code>nslookup</code> returned the old IP.</p></article>
+   <article class="cause yellow"><div class="icon">⚡</div><div class="layer">Transport / Application</div><h3>03. Server Bottleneck</h3><p>Simultaneous submissions caused retransmissions and HTTP timeouts.</p><p><b>Evidence:</b> TCP handshake succeeded; server logs showed overload.</p></article>
+   <article class="cause blue"><div class="icon">🛡</div><div class="layer">Security / Application</div><h3>04. Firewall Rule</h3><p>A broad rule blocked a valid browser-extension submission.</p><p><b>Evidence:</b> Firewall log showed HTTP 403.</p></article>
+  </div>
+  <div class="panel" style="margin-top:18px;overflow:auto"><h3 style="margin-top:0">Symptom → evidence → actual fault</h3><table style="width:100%;border-collapse:collapse;min-width:650px;font-size:.9rem"><thead><tr style="color:var(--cyan);text-align:left"><th style="padding:12px;border-bottom:1px solid var(--line)">Symptom</th><th style="padding:12px;border-bottom:1px solid var(--line)">What worked</th><th style="padding:12px;border-bottom:1px solid var(--line)">Actual fault</th><th style="padding:12px;border-bottom:1px solid var(--line)">Proof</th></tr></thead><tbody>
+   <tr><td style="padding:12px;border-bottom:1px solid var(--line)">Lab A cannot open portal</td><td style="padding:12px;border-bottom:1px solid var(--line)">Wi-Fi + local subnet</td><td style="padding:12px;border-bottom:1px solid var(--line)">Wrong default gateway</td><td style="padding:12px;border-bottom:1px solid var(--line)"><code>ping 10.20.5.254</code></td></tr>
+   <tr><td style="padding:12px;border-bottom:1px solid var(--line)">Old portal page opens</td><td style="padding:12px;border-bottom:1px solid var(--line)">Routing + internet</td><td style="padding:12px;border-bottom:1px solid var(--line)">Stale DNS record</td><td style="padding:12px;border-bottom:1px solid var(--line)"><code>nslookup</code></td></tr>
+   <tr><td style="padding:12px;border-bottom:1px solid var(--line)">Submissions time out</td><td style="padding:12px;border-bottom:1px solid var(--line)">DNS + TCP connection</td><td style="padding:12px;border-bottom:1px solid var(--line)">Application-server bottleneck</td><td style="padding:12px;border-bottom:1px solid var(--line)">Server logs + TCP capture</td></tr>
+   <tr><td style="padding:12px">Some submissions blocked</td><td style="padding:12px">DNS + routing + capacity</td><td style="padding:12px">Firewall false positive</td><td style="padding:12px"><code>HTTP 403</code> log</td></tr>
+  </tbody></table></div>
+ </div>
+</section>
+<section id="packetflow">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">06 / Packet journey</div><h2>Where does the request go?</h2></div><p>A simplified view of the path from a student's browser to the examination database. The animated packet is moving through the route.</p></div>
+  <div class="flow-box"><div class="eyebrow">Live packet route • illustrative</div><div class="flow-track"><div class="flow-node">💻 Student PC<small>Browser request</small></div><div class="packet"></div><div class="flow-node">📡 Wi-Fi + Switch<small>Local network</small></div><div class="packet"></div><div class="flow-node">⇄ Router<small>Next hop</small></div><div class="packet"></div><div class="flow-node">🔎 DNS / Firewall<small>Resolve + inspect</small></div><div class="packet"></div><div class="flow-node">🌐 Portal<small>HTTPS : 443</small></div><div class="packet"></div><div class="flow-node">⚙ App + DB<small>Process answer</small></div></div><p class="network-note">Conceptual flow: DNS lookup identifies the destination; routing forwards packets; the firewall checks traffic; the application processes the submission.</p></div>
+  <div class="panel" style="margin-top:18px"><div class="eyebrow">Interactive layer explorer</div><h3 style="font-size:1.4rem;margin:7px 0">Choose a layer to see what it tells us.</h3>
+   <div class="tabs" role="tablist"><button class="tab active" data-layer="ip">IP / Gateway</button><button class="tab" data-layer="dns">DNS</button><button class="tab" data-layer="tcp">TCP</button><button class="tab" data-layer="http">HTTP / Firewall</button></div>
+   <div class="detail" id="layerDetail"><h3>IP / Gateway — can the device find its next hop?</h3><p>The default gateway forwards traffic outside the local subnet. Lab A had the wrong gateway supplied by DHCP, so external destinations could not be reached correctly.</p></div>
+  </div>
+ </div>
+</section>
+<section id="toolkit">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">07 / Investigation toolkit</div><h2>Commands used to find the truth.</h2></div><p>These commands help inspect client configuration, test reachability, resolve names, trace routes, and verify HTTPS connectivity. Use the copy buttons during your demonstration.</p></div>
+  <div class="grid command-grid">
+   <div class="command"><div class="command-top"><h3>🧾 View IP configuration</h3><button class="copy" data-copy="ipconfig /all">Copy command</button></div><p>Shows IP address, subnet mask, DHCP details, DNS, and default gateway.</p><code>ipconfig /all</code></div>
+   <div class="command"><div class="command-top"><h3>📡 Test gateway reachability</h3><button class="copy" data-copy="ping 10.20.5.254">Copy command</button></div><p>Checks whether the correct gateway responds to network packets.</p><code>ping 10.20.5.254</code></div>
+   <div class="command"><div class="command-top"><h3>🔎 Check DNS resolution</h3><button class="copy" data-copy="nslookup exam.college.edu">Copy command</button></div><p>Finds the IP address returned for the examination portal's domain name.</p><code>nslookup exam.college.edu</code></div>
+   <div class="command"><div class="command-top"><h3>🧹 Clear DNS cache</h3><button class="copy" data-copy="ipconfig /flushdns">Copy command</button></div><p>Clears the local DNS resolver cache so the client can request fresh data.</p><code>ipconfig /flushdns</code></div>
+   <div class="command"><div class="command-top"><h3>🗺 Trace the route</h3><button class="copy" data-copy="tracert exam.college.edu">Copy command</button></div><p>Shows the network hops taken toward the destination.</p><code>tracert exam.college.edu</code></div>
+   <div class="command"><div class="command-top"><h3>🔐 Test HTTPS port</h3><button class="copy" data-copy="Test-NetConnection exam.college.edu -Port 443">Copy command</button></div><p>Checks connectivity to the portal on TCP port 443.</p><code>Test-NetConnection exam.college.edu -Port 443</code></div>
+   <div class="command"><div class="command-top"><h3>♻ Renew client lease</h3><button class="copy" data-copy="ipconfig /release&#10;ipconfig /renew">Copy commands</button></div><p>Releases and requests a new DHCP lease after correcting the scope.</p><code>ipconfig /release</code><br><code>ipconfig /renew</code></div>
+   <div class="command"><div class="command-top"><h3>🧪 Check the full service</h3><button class="copy" data-copy="ipconfig /all&#10;ping 10.20.5.254&#10;nslookup exam.college.edu&#10;tracert exam.college.edu&#10;Test-NetConnection exam.college.edu -Port 443">Copy checklist</button></div><p>Run a layered verification after fixes, then test portal loading and answer submission.</p><code>Layer-by-layer verification</code></div>
+  </div>
+ </div>
+</section>
+<section id="lessons">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">08 / What the incident teaches</div><h2>Lessons from the outage.</h2></div><p>The biggest lesson: a working Wi-Fi icon does not prove that the whole application is working.</p></div>
+  <div class="grid lessons">
+   <div class="lesson"><b>01</b><h3>Check layer by layer.</h3><p>Do not jump to the conclusion that the server is down. Test the client, gateway, DNS, transport, and application.</p></div>
+   <div class="lesson"><b>02</b><h3>Separate symptoms.</h3><p>Different rooms and different failure patterns can point to independent faults, even during one incident.</p></div>
+   <div class="lesson"><b>03</b><h3>Fix safely, then verify.</h3><p>Correct the exact DHCP, DNS, capacity, or firewall issue. Avoid broad changes that create new security risks.</p></div>
+  </div>
+ </div>
+</section>
+<section id="team">
+ <div class="wrap">
+  <div class="section-head"><div><div class="eyebrow">09 / The people behind the case</div><h2>Meet the investigation team.</h2></div><p>Four members. One mission: understand the network, connect the clues, and explain how the outage was solved.</p></div>
+  <div class="grid team">
+   <div class="team-card"><div class="avatar">A</div><h3>Arya</h3><p>Project team member</p></div>
+   <div class="team-card"><div class="avatar">M</div><h3>Mannat</h3><p>Project team member</p></div>
+   <div class="team-card"><div class="avatar">T</div><h3>Tiya</h3><p>Project team member</p></div>
+   <div class="team-card"><div class="avatar">V</div><h3>Vidhi</h3><p>Project team member</p></div>
+  </div>
+ </div>
+</section>
+</main>
+<footer><div class="wrap"><div class="eyebrow">Case file #047 • Computer Networks</div><p><strong>THE 47-MINUTE OUTAGE</strong><br>One network. Four faults. One investigation.</p><small>Created by Arya • Mannat • Tiya • Vidhi</small></div></footer>
+<script>
+const layerInfo={
+ ip:{title:"IP / Gateway — can the device find its next hop?",body:"The default gateway forwards traffic outside the local subnet. Lab A had the wrong gateway supplied by DHCP, so external destinations could not be reached correctly."},
+ dns:{title:"DNS — is the domain pointing to the right server?",body:"DNS translates a domain name into an IP address. The stale A record sent some browsers to 10.30.1.40, the old server, instead of the live portal at 10.30.1.50."},
+ tcp:{title:"TCP — did the connection succeed, and can the service keep up?",body:"TCP handshakes succeeded, but retransmissions, duplicate acknowledgments, and HTTP 504 timeouts appeared under heavy submission load. A successful transport connection does not guarantee application capacity."},
+ http:{title:"HTTP / Firewall — is the request allowed?",body:"Some approved browser-extension submissions received HTTP 403 Forbidden. A broad firewall/reverse-proxy rule caused a false positive. The safe fix was a narrow approved exception, not disabling the security rule."}
+};
+document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
+ document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));btn.classList.add("active");
+ const item=layerInfo[btn.dataset.layer];document.getElementById("layerDetail").innerHTML="<h3>"+item.title+"</h3><p>"+item.body+"</p>";
+}));
+document.querySelectorAll(".copy").forEach(btn=>btn.addEventListener("click",async()=>{
+ const original=btn.textContent;try{await navigator.clipboard.writeText(btn.dataset.copy.replaceAll("&#10;","\n"));btn.textContent="Copied ✓";}catch(e){btn.textContent="Select command";}setTimeout(()=>btn.textContent=original,1400);
+}));
+const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add("visible");observer.unobserve(entry.target);}}),{threshold:.08});
+document.querySelectorAll("section").forEach(el=>{el.classList.add("reveal");observer.observe(el);});
+</script>
+</body>
+</html>
